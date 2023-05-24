@@ -25,6 +25,7 @@ class FieldParser:
 
     def _clean_report(self, report):
         report = report.replace('\n', '').replace('_', '').strip().lower().split('.')
+        report = '.'.join([i for i in report])
         return report.strip()
 
 
