@@ -279,22 +279,3 @@ class SwinLLama(pl.LightningModule):
 
     def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
         optimizer.zero_grad()
-
-
-if __name__ == "__main__":
-    import os
-    from PIL import Image
-    import numpy as np
-    from transformers import Blip2Processor
-    image_path = '/home/zhanyu_wang/code/visual-chatXrays/image/00c80722.png'
-    caption = 'impression: No acute cardiopulmonary process. Findings: Well-expanded lungs are clear.  There are no pleural effusions or pneumothorax.  The cardiomediastinal and hilar contours are normal.  Pulmonary vascularity is normal.  There is mild marginal spurring involving the visualized thoracolumbar spine.'
-    image = Image.open(image_path).convert("RGB")
-    processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
-    inputs = processor(images=image, return_tensors="pt").to('cpu')
-    sample = {'image':inputs['pixel_values'], "text_input":caption}
-    
-    model = SwinLLama(llama_model="/home/zhanyu_wang/code/MiniGPT-4/vicuna_weights",
-                     prompt_path="prompts/alignment.txt",
-                     prompt_template='###Human: {} ###Assistant: ')
-    output = model(sample)
-    print(output)

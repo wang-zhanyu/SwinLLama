@@ -4,8 +4,6 @@ from torch.utils.data import DataLoader
 from dataset.data_helper import create_datasets
 
 
-AVAIL_GPUS = min(1, torch.cuda.device_count())
-
 
 class DataModule(LightningDataModule):
 
