@@ -18,7 +18,7 @@ pip install -r requirements.txt
 ```
 
 
-**2. Prepare the pretrained Vicuna weights**
+<!-- **2. Prepare the pretrained Vicuna weights**
 
 The current version of SwinLLama is built on the Vicuna-7B.
 Please use the fiollowing command to prepare the Vicuna weights.
@@ -46,18 +46,18 @@ vicuna_weights
 ```
 
 Then, set the path to the vicuna weight in the model config file 
-[configs/config_mimic.py](configs/config_mimic.py#L28) at Line 28.
+[configs/config_mimic.py](configs/config_mimic.py#L28) at Line 28. -->
 
-
+<!-- 
 **3. Prepare the pretrained SwinLlama checkpoint**
 
 Download our pretrained checkpoint from
 [coming soon].
 Then, set the path to the delta_file in the config file 
-in [configs/config_mimic.py](configs/config_mimic.py#L18) at Line 18. 
+in [configs/config_mimic.py](configs/config_mimic.py#L18) at Line 18.  -->
 
 
-**4. Prepare the training dataset**
+**2. Prepare the training dataset**
 
 We train SwinLLama on the MIMIC-CXR dataset
 You can dowmload the dataset from [here](https://physionet.org/content/mimic-cxr-jpg/2.0.0/) and set base_dir to the file download path in the config file in [configs/config_mimic.py](configs/config_mimic.py#L8) at Line 8, for example, base_dir='physionet.org/files/mimic-cxr-jpg/2.0.0/files'.
@@ -75,18 +75,18 @@ python demo.py --delta_file /path/to/pretrained/checkpoint
 
 ### Training
 
-To launch the training, run the following command. In our experiments, we use 2 3090. 
+To launch the training, run the following command. In our experiments, we use 2 3090GPU. 
 You can change the save path in the config file 
 [configs/config_mimic.py](configs/config_mimic.py#L16)
 
 ```bash
-python train.py
+python train.py --gups 2 --batch_size 4 --val_batch_size 4 --max_epochs 3 --savedmodel_path /path/to/savemodel
 ```
 
 ## Acknowledgement
 
 + [MiniGPT-4](https://github.com/Vision-CAIR/MiniGPT-4) Some codes of this repo are based on MiniGPT-4.
-+ [Vicuna](https://github.com/lm-sys/FastChat) The fantastic language ability of Vicuna with only 13B parameters is just amazing.
++ [Vicuna](https://github.com/lm-sys/FastChat) The fantastic language ability of Vicuna with only 7B parameters is just amazing.
 
 
 ## License
