@@ -13,15 +13,21 @@ class SwinLLamaR2gen:
         self.device = device
         self.image_processor = ViTImageProcessor.from_pretrained("microsoft/swin-tiny-patch4-window7-224")
         self.model = SwinLLama(args)
+        self.convert_weights_to_half_precision(self.model)
         self.model.to(device)
         self.model.eval()
        
-        
+
+    def convert_weights_to_half_precision(self, model):
+        for name, param in model.named_parameters():
+            if param.dtype == torch.float32:
+                param.data = param.data.half()
+
     def inference(self, image_path, max_output_tokens):
         try:
             array = np.array(image_path)
             pixel_values = self.image_processor(array, return_tensors="pt").pixel_values
-            image = pixel_values.to(self.device)
+            image = pixel_values.to(self.device).half()
             
             img_embeds, atts_img = self.model.encode_img(image)
             img_embeds = self.model.layer_norm(img_embeds)
@@ -34,7 +40,7 @@ class SwinLLamaR2gen:
                             device=atts_img.device) * self.model.llama_tokenizer.bos_token_id
             bos_embeds = self.model.embed_tokens(bos)
             inputs_embeds = torch.cat([bos_embeds, img_embeds], dim=1)
-                 
+            
             output_token = self.model.llama_model.generate(
                 inputs_embeds=inputs_embeds,
                 no_repeat_ngram_size=2,
