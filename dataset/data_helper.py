@@ -1,6 +1,7 @@
 
 import os
 import json
+import re
 import numpy as np
 from PIL import Image
 import torch.utils.data as data
@@ -27,12 +28,29 @@ class FieldParser:
         report = report.replace('\n', '').replace('_', '').strip().lower().split('.')
         report = '.'.join([i for i in report])
         return report.strip()
+    
+    # from https://github.com/cuhksz-nlp/R2Gen/blob/main/modules/tokenizers.py
+    def clean_report_mimic_cxr(self, report):
+        report_cleaner = lambda t: t.replace('\n', ' ').replace('__', '_').replace('__', '_').replace('__', '_') \
+            .replace('__', '_').replace('__', '_').replace('__', '_').replace('__', '_').replace('  ', ' ') \
+            .replace('  ', ' ').replace('  ', ' ').replace('  ', ' ').replace('  ', ' ').replace('  ', ' ') \
+            .replace('..', '.').replace('..', '.').replace('..', '.').replace('..', '.').replace('..', '.') \
+            .replace('..', '.').replace('..', '.').replace('..', '.').replace('1. ', '').replace('. 2. ', '. ') \
+            .replace('. 3. ', '. ').replace('. 4. ', '. ').replace('. 5. ', '. ').replace(' 2. ', '. ') \
+            .replace(' 3. ', '. ').replace(' 4. ', '. ').replace(' 5. ', '. ').replace(':', ' :') \
+            .strip().lower().split('. ')
+        sent_cleaner = lambda t: re.sub('[.,?;*!%^&_+()\[\]{}]', '', t.replace('"', '').replace('/', '')
+                               .replace('\\', '').replace("'", '').strip().lower())
+        tokens = [sent_cleaner(sent) for sent in report_cleaner(report) if sent_cleaner(sent) != []]
+        report = ' . '.join(tokens) + ' .'
+        report = ' '.join(report.split()[:self.args.max_txt_len])
+        return report
 
 
     def parse(self, features, training=False):
         to_return = {'id': features['id']}
         report = features.get("report", "")
-        text1 = self._clean_report(report)
+        text1 = self.clean_report_mimic_cxr(report)
         to_return['input_text'] = text1
         # chest x-ray images
         try:
