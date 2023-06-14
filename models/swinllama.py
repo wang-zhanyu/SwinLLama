@@ -8,7 +8,7 @@ from evalcap.bleu.bleu import Bleu
 from evalcap.rouge.rouge import Rouge
 from evalcap.cider.cider import Cider
 from evalcap.meteor.meteor import Meteor
-from transformers import SwinModel
+from transformers import SwinModel, BertTokenizer
 from peft import get_peft_model, LoraConfig, TaskType
 
 
@@ -32,7 +32,7 @@ class SwinLLama(pl.LightningModule):
         print('Loading LLAMA')
         self.llama_tokenizer = LlamaTokenizer.from_pretrained(args.llama_model, use_fast=False)
         self.llama_tokenizer.pad_token = self.llama_tokenizer.eos_token
-
+        self.bert_tokenizer = BertTokenizer.from_pretrained("bert-large-uncased")
         if args.low_resource:
             self.llama_model = LlamaForCausalLM.from_pretrained(
                 args.llama_model,
@@ -64,8 +64,9 @@ class SwinLLama(pl.LightningModule):
             self.visual_encoder.num_features, self.llama_model.config.hidden_size
         )
         self.layer_norm = nn.LayerNorm(self.llama_model.config.hidden_size)
-        self.max_txt_len = args.max_txt_len
         self.end_sym = args.end_sym
+        self.prompt = 'Generate a comprehensive and detailed diagnosis report for this chest xray image.'
+        # self.prompt = 'Based on the provided chest X-ray image, please generate a detailed diagnostic report. Describe any abnormalities, including their location, size, and characteristics. Assess the presence or absence of acute cardiopulmonary processes, focal consolidations, pleural effusion, pneumothorax, nodular opacities, deformities of the ribs, and any other relevant findings. Additionally, analyze the cardiomediastinal silhouette, the presence of clips within the breast, and the appearance of the imaged upper abdomen. Please provide a comprehensive and detailed interpretation of the chest X-ray image.'
 
         if args.delta_file is not None:
             state_dict = torch.load(args.delta_file, map_location=torch.device(f'cuda:{torch.cuda.current_device()}'))['model']
@@ -96,15 +97,18 @@ class SwinLLama(pl.LightningModule):
 
     def encode_img(self, image):
         device = image.device
-        # image_embeds = self.visual_encoder(image)['last_hidden_state'].to(device)
-        image_embeds = self.visual_encoder(image)['pooler_output'].unsqueeze(1).to(device)
+        if self.hparams.use_pooler:
+            image_embeds = self.visual_encoder(image)['pooler_output'].unsqueeze(1).to(device)
+        else:
+            image_embeds = self.visual_encoder(image)['last_hidden_state'].to(device)
         image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(device)
 
         inputs_llama = self.llama_proj(image_embeds)
         atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
         return inputs_llama, atts_llama
 
-    def prompt_wrap(self, img_embeds, atts_img, prompt='<Img><ImageHere></Img> Generate a diagnosis report for this chest xray image.'):
+    def prompt_wrap(self, img_embeds, atts_img):
+        prompt=f'<Img><ImageHere></Img> {self.prompt}'
         batch_size = img_embeds.shape[0]
         p_before, p_after = prompt.split('<ImageHere>')
         p_before_tokens = self.llama_tokenizer(
@@ -132,7 +136,7 @@ class SwinLLama(pl.LightningModule):
             return_tensors="pt",
             padding="longest",
             truncation=True,
-            max_length=self.max_txt_len,
+            max_length=self.hparams.report_max_length,
             add_special_tokens=False
         ).to(image.device)
 
@@ -213,7 +217,6 @@ class SwinLLama(pl.LightningModule):
 
         outputs = self.llama_model.generate(
             inputs_embeds=inputs_embeds,
-            # stopping_criteria=self.stopping_criteria,
             num_beams=self.hparams.beam_size,
             do_sample=self.hparams.do_sample,
             max_length=self.hparams.report_max_length,
@@ -230,10 +233,11 @@ class SwinLLama(pl.LightningModule):
         if output_token[0] == 1:  # some users find that there is a start token <s> at the beginning. remove it
             output_token = output_token[1:]
         output_text = self.llama_tokenizer.decode(output_token, add_special_tokens=False)
-        output_text = output_text.split('###')[0]  # remove the stop sign '###'
+        output_text = output_text.split('\n')[0]
         output_text = output_text.split('Radiologist:')[-1].strip()
         return output_text
-    
+
+
     def validation_epoch_end(self, outputs):
         ref, hypo = [], []
         if self.trainer.num_devices != 1:
