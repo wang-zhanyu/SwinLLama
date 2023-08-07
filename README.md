@@ -80,7 +80,7 @@ You can change the save path in the config file
 [configs/config_mimic.py](configs/config_mimic.py#L16)
 
 ```bash
-python train.py --gups 2 --batch_size 4 --val_batch_size 4 --max_epochs 3 --savedmodel_path /path/to/savemodel
+python train.py --gpus 2 --batch_size 4 --val_batch_size 4 --max_epochs 3 --savedmodel_path /path/to/savemodel
 ```
 
 ## Acknowledgement
